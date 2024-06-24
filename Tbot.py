@@ -30,8 +30,17 @@ class TikTokLiveRecorder:
             "-c:a", "copy",
             output_file
         ]
-        self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        await update.message.reply_text(f"Recording started. Use /stop to stop recording.")
+        try:
+            self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = self.process.communicate()
+            print("FFmpeg output:", stdout.decode())
+            print("FFmpeg errors:", stderr.decode())
+            if os.path.exists(output_file):
+                await update.message.reply_text(f"Recording started. Use /stop to stop recording.")
+            else:
+                await update.message.reply_text("Recording failed. Please check logs for details.")
+        except Exception as e:
+            await update.message.reply_text(f"Error starting recording: {str(e)}")
 
     async def stop_recording(self, update: Update, context: CallbackContext):
         if self.process:
@@ -69,7 +78,7 @@ async def get_info(update: Update, context: CallbackContext):
     await update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    application = Application.builder().token("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4").build()
+    application = Application.builder().token("YOUR_BOT_TOKEN_HERE").build()
 
     global recorder
     recorder = TikTokLiveRecorder()
