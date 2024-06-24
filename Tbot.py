@@ -1,5 +1,6 @@
 import subprocess
 import requests
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
 
@@ -29,15 +30,23 @@ class TikTokLiveRecorder:
             "-c:a", "copy",
             output_file
         ]
-        self.process = subprocess.Popen(command)
+        self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         await update.message.reply_text(f"Recording started. Use /stop to stop recording.")
 
     async def stop_recording(self, update: Update, context: CallbackContext):
         if self.process:
             self.process.terminate()
+            self.process.wait()
+            stdout, stderr = self.process.communicate()
+            print("FFmpeg output:", stdout.decode())
+            print("FFmpeg errors:", stderr.decode())
             self.process = None
-            await update.message.reply_text("Recording stopped.")
-            await self.upload_video(update, context, "live_stream_record.mp4")
+
+            if os.path.exists("live_stream_record.mp4"):
+                await update.message.reply_text("Recording stopped.")
+                await self.upload_video(update, context, "live_stream_record.mp4")
+            else:
+                await update.message.reply_text("Recording stopped, but no video file was created.")
         else:
             await update.message.reply_text("No recording in progress.")
 
