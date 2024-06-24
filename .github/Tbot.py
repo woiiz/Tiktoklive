@@ -7,6 +7,7 @@ class TikTokLiveRecorder:
     def __init__(self):
         self.room_id = None
         self.user = None
+        self.process = None
         self.http_client = requests.Session()
 
     def get_room_info(self, url):
@@ -28,14 +29,29 @@ class TikTokLiveRecorder:
             "-c:a", "copy",
             output_file
         ]
-        subprocess.run(command)
-        update.message.reply_text(f"Live stream recorded and saved as {output_file}")
+        self.process = subprocess.Popen(command)
+        update.message.reply_text(f"Recording started. Use /stop to stop recording.")
+
+    def stop_recording(self, update: Update, context: CallbackContext):
+        if self.process:
+            self.process.terminate()
+            self.process = None
+            update.message.reply_text("Recording stopped.")
+            self.upload_video(update, context, "live_stream_record.mp4")
+        else:
+            update.message.reply_text("No recording in progress.")
+
+    def upload_video(self, update: Update, context: CallbackContext, file_path: str):
+        with open(file_path, 'rb') as video_file:
+            context.bot.send_video(chat_id=update.message.chat_id, video=video_file)
+        update.message.reply_text("Video uploaded to Telegram.")
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         "Welcome to TikTok Live Recorder Bot!\n"
         "Use /getinfo <TikTok URL> to get room info\n"
-        "Use /record to start recording the live stream"
+        "Use /record to start recording the live stream\n"
+        "Use /stop to stop recording the live stream"
     )
 
 def get_info(update: Update, context: CallbackContext):
@@ -44,7 +60,7 @@ def get_info(update: Update, context: CallbackContext):
     update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    updater = Updater("6507082989:AAEpxt-hi_ZW0Li3-BtVkiy8hNYo4IgwVIc")
+    updater = Updater("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4")
     dispatcher = updater.dispatcher
 
     global recorder
@@ -53,6 +69,7 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("getinfo", get_info))
     dispatcher.add_handler(CommandHandler("record", recorder.record_live))
+    dispatcher.add_handler(CommandHandler("stop", recorder.stop_recording))
 
     updater.start_polling()
     updater.idle()
