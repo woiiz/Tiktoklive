@@ -2,7 +2,7 @@ import subprocess
 import requests
 from queue import Queue
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackContext
 
 class TikTokLiveRecorder:
     def __init__(self):
@@ -61,20 +61,17 @@ def get_info(update: Update, context: CallbackContext):
     update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    update_queue = Queue()
-    updater = Updater("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4", update_queue)
-    dispatcher = updater.dispatcher
+    application = Application.builder().token("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4").build()
 
     global recorder
     recorder = TikTokLiveRecorder()
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("getinfo", get_info))
-    dispatcher.add_handler(CommandHandler("record", recorder.record_live))
-    dispatcher.add_handler(CommandHandler("stop", recorder.stop_recording))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("getinfo", get_info))
+    application.add_handler(CommandHandler("record", recorder.record_live))
+    application.add_handler(CommandHandler("stop", recorder.stop_recording))
 
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
