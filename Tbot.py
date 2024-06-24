@@ -78,7 +78,7 @@ async def get_info(update: Update, context: CallbackContext):
     await update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    application = Application.builder().token("YOUR_BOT_TOKEN_HERE").build()
+    application = Application.builder().token("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4").build()
 
     global recorder
     recorder = TikTokLiveRecorder()
