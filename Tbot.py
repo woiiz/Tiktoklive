@@ -1,8 +1,10 @@
 import subprocess
 import requests
-import os
 from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackContext
+
+# Replace 'YOUR_BOT_TOKEN_HERE' with your actual bot token
+TOKEN = '7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4'
 
 class TikTokLiveRecorder:
     def __init__(self):
@@ -18,10 +20,11 @@ class TikTokLiveRecorder:
         self.user = "example_user"
         self.room_id = "example_room_id"
 
-    async def record_live(self, update: Update, context: CallbackContext):
+    def record_live(self, update: Update, context: CallbackContext):
         if not self.room_id:
-            await update.message.reply_text("Room ID not found. Please call /getinfo first.")
+            update.message.reply_text("Room ID not found. Please call /getinfo first.")
             return
+
         output_file = "live_stream_record.mp4"
         command = [
             "ffmpeg",
@@ -30,65 +33,69 @@ class TikTokLiveRecorder:
             "-c:a", "copy",
             output_file
         ]
+
         try:
             self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = self.process.communicate()
-            print("FFmpeg output:", stdout.decode())
-            print("FFmpeg errors:", stderr.decode())
-            if os.path.exists(output_file):
-                await update.message.reply_text(f"Recording started. Use /stop to stop recording.")
-            else:
-                await update.message.reply_text("Recording failed. Please check logs for details.")
-        except Exception as e:
-            await update.message.reply_text(f"Error starting recording: {str(e)}")
+            stdout, stderr = self.process.communicate(timeout=60)  # Timeout set to 60 seconds
 
-    async def stop_recording(self, update: Update, context: CallbackContext):
-        if self.process:
+            if self.process.returncode != 0:
+                update.message.reply_text(f"Recording failed. Error: {stderr.decode('utf-8')}")
+            else:
+                update.message.reply_text(f"Recording started. Use /stop to stop recording.")
+        except subprocess.TimeoutExpired:
             self.process.terminate()
-            self.process.wait()
-            stdout, stderr = self.process.communicate()
-            print("FFmpeg output:", stdout.decode())
-            print("FFmpeg errors:", stderr.decode())
-            self.process = None
+            update.message.reply_text("Recording timed out.")
+        except Exception as e:
+            update.message.reply_text(f"An error occurred: {str(e)}")
 
-            if os.path.exists("live_stream_record.mp4"):
-                await update.message.reply_text("Recording stopped.")
-                await self.upload_video(update, context, "live_stream_record.mp4")
+    def stop_recording(self, update: Update, context: CallbackContext):
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+            self.process.wait(timeout=10)  # Wait for process to terminate gracefully
+            if self.process.poll() is None:
+                self.process.kill()
+                update.message.reply_text("Forcefully stopped recording.")
             else:
-                await update.message.reply_text("Recording stopped, but no video file was created.")
+                update.message.reply_text("Recording stopped.")
+                self.upload_video(update, context, "live_stream_record.mp4")
         else:
-            await update.message.reply_text("No recording in progress.")
+            update.message.reply_text("No recording in progress.")
 
-    async def upload_video(self, update: Update, context: CallbackContext, file_path: str):
-        with open(file_path, 'rb') as video_file:
-            await context.bot.send_video(chat_id=update.message.chat_id, video=video_file)
-        await update.message.reply_text("Video uploaded to Telegram.")
+    def upload_video(self, update: Update, context: CallbackContext, file_path: str):
+        try:
+            with open(file_path, 'rb') as video_file:
+                context.bot.send_video(chat_id=update.message.chat_id, video=video_file)
+            update.message.reply_text("Video uploaded to Telegram.")
+        except FileNotFoundError:
+            update.message.reply_text("Recording stopped, but no video file was created.")
 
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text(
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text(
         "Welcome to TikTok Live Recorder Bot!\n"
         "Use /getinfo <TikTok URL> to get room info\n"
         "Use /record to start recording the live stream\n"
         "Use /stop to stop recording the live stream"
     )
 
-async def get_info(update: Update, context: CallbackContext):
+def get_info(update: Update, context: CallbackContext):
     url = context.args[0]
     recorder.get_room_info(url)  # Assuming recorder is defined globally or passed as an argument
-    await update.message.reply_text("Room info retrieved successfully.")
+    update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    application = Application.builder().token("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4").build()
+    updater = Updater(TOKEN)
+    dispatcher = updater.dispatcher
 
     global recorder
     recorder = TikTokLiveRecorder()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("getinfo", get_info))
-    application.add_handler(CommandHandler("record", recorder.record_live))
-    application.add_handler(CommandHandler("stop", recorder.stop_recording))
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("getinfo", get_info))
+    dispatcher.add_handler(CommandHandler("record", recorder.record_live))
+    dispatcher.add_handler(CommandHandler("stop", recorder.stop_recording))
 
-    application.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
     main()
