@@ -1,5 +1,6 @@
 import subprocess
 import requests
+from queue import Queue
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
@@ -60,7 +61,8 @@ def get_info(update: Update, context: CallbackContext):
     update.message.reply_text("Room info retrieved successfully.")
 
 def main():
-    updater = Updater("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4")
+    update_queue = Queue()
+    updater = Updater("7180683439:AAF_XxCr3dYvcb6gVKXRPNnD1rbdZZ7OQQ4", update_queue)
     dispatcher = updater.dispatcher
 
     global recorder
