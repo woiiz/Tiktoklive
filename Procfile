@@ -1,1 +1,1 @@
-worker: Tbot.py
+worker: python Tbot.py
